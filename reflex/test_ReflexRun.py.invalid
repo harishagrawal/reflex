@@ -1,0 +1,125 @@
+from unittest.mock import patch, MagicMock
+import pytest
+from reflex import constants
+from reflex.utils import build, exec, prerequisites, processes
+from reflex.config import get_config
+from reflex.environment import environment
+from reflex.state import reset_disk_state_manager
+from reflex.utils import console, redir, telemetry
+from reflex.utils.exec import should_use_granian
+from reflex_cli.v2.deployments import hosting_cli
+from reflex.custom_components.custom_components import custom_components_cli
+from reflex_cli.v2.cli import logout
+from reflex_cli.v2.deployments import check_version
+from reflex.utils import prerequisites
+from reflex.utils import build, exec, prerequisites, processes
+from reflex.utils import reflex.utils as export_utils
+from reflex.utils import prerequisites
+from reflex import model
+from reflex.utils import prerequisites
+from reflex.model import Model, format_revision
+from reflex.utils import prerequisites
+import reflex.config
+from reflex.utils import prerequisites
+from reflex_cli.utils import dependency
+from reflex_cli.v2 import reflex_cli.v2 as hosting_cli
+from reflex_cli.v2.deployments import check_version
+from reflex.utils import reflex.utils as export_utils
+from reflex.utils import prerequisites
+from reflex.utils import prerequisites
+from reflex_cli.constants.base import reflex_cli.constants.base as HostingLogLevel
+from reflex_cli.constants.base import reflex_cli.constants.base as HostingLogLevel
+import typer
+import concurrent.futures
+from reflex.reflex import _run
+
+class Test_ReflexRun:
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    @pytest.mark.positive
+    def test_initialization_and_system_info_output(self):
+        with patch('reflex.utils.exec.output_system_info') as mock_output_system_info:
+            _run()
+            mock_output_system_info.assert_called_once()
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    @pytest.mark.positive
+    def test_check_running_mode_validation(self):
+        with patch('reflex.utils.prerequisites.check_running_mode') as mock_check_running_mode:
+            mock_check_running_mode.return_value = (True, True)
+            _run(frontend=False, backend=False)
+            mock_check_running_mode.assert_called_once_with(False, False)
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    @pytest.mark.positive
+    def test_reflex_directory_assertion(self):
+        with patch('reflex.utils.prerequisites.assert_in_reflex_dir') as mock_assert_in_reflex_dir:
+            mock_assert_in_reflex_dir.side_effect = click.exceptions.Exit(1)
+            with pytest.raises(click.exceptions.Exit):
+                _run()
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    @pytest.mark.positive
+    def test_app_initialization(self):
+        with patch('reflex.utils.prerequisites.needs_reinit') as mock_needs_reinit:
+            mock_needs_reinit.return_value = True
+            with patch('reflex.reflex._init') as mock_init:
+                _run(frontend=True)
+                mock_init.assert_called_once()
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    @pytest.mark.positive
+    def test_port_handling(self):
+        with patch('reflex.utils.processes.handle_port') as mock_handle_port:
+            mock_handle_port.return_value = 8000
+            _run(frontend_port=None, backend_port=None)
+            mock_handle_port.assert_called()
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    @pytest.mark.positive
+    def test_config_persistence(self):
+        with patch('reflex.config.get_config') as mock_get_config:
+            config = MagicMock()
+            config.frontend_port = 8000
+            config.backend_port = 8001
+            mock_get_config.return_value = config
+            _run(frontend_port=8000, backend_port=8001)
+            config._set_persistent.assert_called()
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    @pytest.mark.positive
+    def test_compile_or_validate_app(self):
+        with patch('reflex.utils.prerequisites.compile_or_validate_app') as mock_compile_or_validate_app:
+            _run()
+            mock_compile_or_validate_app.assert_called_once()
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    @pytest.mark.positive
+    def test_telemetry_event(self):
+        with patch('reflex.utils.telemetry.send') as mock_send:
+            _run()
+            mock_send.assert_called_once()
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    @pytest.mark.positive
+    def test_concurrent_execution(self):
+        with patch('reflex.utils.processes.run_concurrently_context') as mock_run_concurrently_context:
+            _run()
+            mock_run_concurrently_context.assert_called_once()
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    @pytest.mark.positive
+    def test_environment_mode(self):
+        with patch('reflex.environment.environment.REFLEX_ENV_MODE.set') as mock_set_env_mode:
+            _run(env=constants.Env.PROD)
+            mock_set_env_mode.assert_called_once_with(constants.Env.PROD)

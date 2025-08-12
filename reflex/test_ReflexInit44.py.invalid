@@ -1,0 +1,172 @@
+from __future__ import annotations
+import atexit
+from importlib.util import find_spec
+from pathlib import Path
+from typing import TYPE_CHECKING
+import click
+from reflex_cli.v2.deployments import hosting_cli
+from reflex import constants
+from reflex.config import get_config
+from reflex.constants.base import LITERAL_ENV
+from reflex.custom_components.custom_components import custom_components_cli
+from reflex.environment import environment
+from reflex.state import reset_disk_state_manager
+from reflex.utils import console, redir, telemetry
+from reflex.utils.exec import should_use_granian
+from reflex.utils import exec, prerequisites
+from reflex.utils import build, exec, prerequisites, processes
+import time
+from reflex.utils import prerequisites
+from reflex.utils import reflex.utils as export_utils
+from reflex.utils import prerequisites
+from reflex_cli.v2 import reflex_cli.v2 as hosting_cli
+from reflex_cli.v2.deployments import check_version
+from reflex_cli.v2.cli import logout
+from reflex_cli.v2.deployments import check_version
+from reflex import model
+from reflex.utils import prerequisites
+from reflex import model
+from reflex.utils import prerequisites
+from reflex.model import Model, format_revision
+from reflex.utils import prerequisites
+import reflex.config
+from alembic.util.exc import CommandError
+from reflex import model
+from reflex.utils import prerequisites
+from reflex_cli.utils import dependency
+from reflex_cli.v2 import reflex_cli.v2 as hosting_cli
+from reflex_cli.v2.deployments import check_version
+from reflex.utils import reflex.utils as export_utils
+from reflex.utils import prerequisites
+from reflex.utils import prerequisites
+from reflex_cli.constants.base import reflex_cli.constants.base as HostingLogLevel
+from reflex_cli.constants.base import reflex_cli.constants.base as HostingLogLevel
+import typer
+import concurrent.futures
+import pytest
+from unittest.mock import patch, MagicMock
+from reflex.reflex import init
+
+@pytest.fixture
+def mock_console():
+    with patch('reflex.utils.console') as mock:
+        yield mock
+
+@pytest.fixture
+def mock_prerequisites():
+    with patch('reflex.utils.prerequisites') as mock:
+        yield mock
+
+@pytest.fixture
+def mock_redir():
+    with patch('reflex.utils.redir') as mock:
+        yield mock
+
+@pytest.fixture
+def mock_telemetry():
+    with patch('reflex.utils.telemetry') as mock:
+        yield mock
+
+@pytest.mark.valid
+def test_init_with_valid_name_and_template(mock_console, mock_prerequisites, mock_redir, mock_telemetry):
+    mock_prerequisites.validate_app_name.return_value = 'valid_app_name'
+    mock_prerequisites.initialize_app.return_value = 'valid_template'
+
+    init('valid_app_name', 'valid_template', False)
+
+    mock_prerequisites.validate_app_name.assert_called_once_with('valid_app_name')
+    mock_prerequisites.initialize_app.assert_called_once_with('valid_app_name', 'valid_template')
+    mock_console.rule.assert_called_once_with('[bold]Initializing valid_app_name')
+    mock_console.success.assert_called_once_with('Initialized valid_app_name using the valid_template template.')
+
+@pytest.mark.valid
+def test_init_with_ai_flag(mock_redir):
+    init('valid_app_name', None, True)
+    mock_redir.reflex_build_redirect.assert_called_once()
+
+@pytest.mark.invalid
+def test_init_with_invalid_app_name(mock_prerequisites, mock_console):
+    mock_prerequisites.validate_app_name.side_effect = click.exceptions.Exit(1)
+
+    with pytest.raises(click.exceptions.Exit):
+        init('invalid_app_name', None, False)
+
+    mock_prerequisites.validate_app_name.assert_called_once_with('invalid_app_name')
+    mock_console.error.assert_called_once_with('The app directory name must start with a letter and can contain letters, numbers, and underscores.')
+
+@pytest.mark.invalid
+def test_init_with_missing_template(mock_prerequisites, mock_console):
+    mock_prerequisites.initialize_app.return_value = None
+
+    init('valid_app_name', None, False)
+
+    mock_prerequisites.initialize_app.assert_called_once_with('valid_app_name', None)
+    mock_console.print.assert_called_once_with('\nGet started with a template:')
+    mock_console.ask.assert_called_once_with('Which template would you like to use?', choices=['0', '1', '2'], show_choices=False, default='0')
+
+@pytest.mark.invalid
+def test_init_with_non_existent_template(mock_prerequisites, mock_console):
+    mock_prerequisites.initialize_app.side_effect = click.exceptions.Exit(1)
+
+    with pytest.raises(click.exceptions.Exit):
+        init('valid_app_name', 'non_existent_template', False)
+
+    mock_prerequisites.initialize_app.assert_called_once_with('valid_app_name', 'non_existent_template')
+    mock_console.error.assert_called_once_with('Template "non_existent_template" not found or invalid.')
+
+@pytest.mark.valid
+def test_init_with_remote_template(mock_prerequisites, mock_console, mock_telemetry):
+    mock_prerequisites.initialize_app.return_value = 'remote_template'
+
+    init('valid_app_name', 'remote_template', False)
+
+    mock_prerequisites.initialize_app.assert_called_once_with('valid_app_name', 'remote_template')
+    mock_console.success.assert_called_once_with('Initialized valid_app_name using the remote_template template.')
+    mock_telemetry.send.assert_called_once_with('init', template='remote_template')
+
+@pytest.mark.valid
+def test_init_with_existing_app(mock_prerequisites, mock_console, mock_telemetry):
+    mock_prerequisites.initialize_app.return_value = None
+
+    init('valid_app_name', 'valid_template', False)
+
+    mock_prerequisites.initialize_app.assert_called_once_with('valid_app_name', 'valid_template')
+    mock_console.success.assert_called_once_with('Initialized valid_app_name using the valid_template template.')
+    mock_telemetry.send.assert_called_once_with('reinit')
+
+@pytest.mark.valid
+def test_init_with_debug_logging(mock_console, mock_prerequisites, mock_redir, mock_telemetry):
+    mock_prerequisites.validate_app_name.return_value = 'valid_app_name'
+    mock_prerequisites.initialize_app.return_value = 'valid_template'
+
+    with patch('reflex.utils.console._LOG_LEVEL', constants.LogLevel.DEBUG):
+        init('valid_app_name', 'valid_template', False)
+
+    mock_prerequisites.validate_app_name.assert_called_once_with('valid_app_name')
+    mock_prerequisites.initialize_app.assert_called_once_with('valid_app_name', 'valid_template')
+    mock_console.rule.assert_called_once_with('[bold]Initializing valid_app_name')
+    mock_console.success.assert_called_once_with('Initialized valid_app_name using the valid_template template.')
+    mock_console.debug.assert_called()
+
+@pytest.mark.valid
+def test_init_with_telemetry_enabled(mock_console, mock_prerequisites, mock_redir, mock_telemetry):
+    mock_prerequisites.validate_app_name.return_value = 'valid_app_name'
+    mock_prerequisites.initialize_app.return_value = 'valid_template'
+
+    init('valid_app_name', 'valid_template', False)
+
+    mock_prerequisites.validate_app_name.assert_called_once_with('valid_app_name')
+    mock_prerequisites.initialize_app.assert_called_once_with('valid_app_name', 'valid_template')
+    mock_console.rule.assert_called_once_with('[bold]Initializing valid_app_name')
+    mock_console.success.assert_called_once_with('Initialized valid_app_name using the valid_template template.')
+    mock_telemetry.send.assert_called_once_with('init', template='valid_template')
+
+@pytest.mark.invalid
+def test_init_with_missing_dependencies(mock_prerequisites, mock_console):
+    mock_prerequisites.check_latest_package_version.side_effect = click.exceptions.Exit(1)
+
+    with pytest.raises(click.exceptions.Exit):
+        init('valid_app_name', 'valid_template', False)
+
+    mock_prerequisites.check_latest_package_version.assert_called_once_with(constants.Reflex.MODULE_NAME)
+    mock_console.error.assert_called_once_with('Missing required dependencies.')

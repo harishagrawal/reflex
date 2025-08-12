@@ -1,0 +1,78 @@
+import pytest
+from reflex.base import Base
+
+class Test_BaseSet:
+
+    @pytest.mark.valid
+    def test_set_single_attribute(self):
+        obj = Base()
+        obj.set(attribute1="value1")
+        assert obj.attribute1 == "value1"
+
+    @pytest.mark.valid
+    def test_set_multiple_attributes(self):
+        obj = Base()
+        obj.set(attribute1="value1", attribute2="value2", attribute3="value3")
+        assert obj.attribute1 == "value1"
+        assert obj.attribute2 == "value2"
+        assert obj.attribute3 == "value3"
+
+    @pytest.mark.valid
+    def test_set_attributes_with_various_data_types(self):
+        obj = Base()
+        obj.set(int_attr=123, str_attr="string", list_attr=[1, 2, 3])
+        assert obj.int_attr == 123
+        assert obj.str_attr == "string"
+        assert obj.list_attr == [1, 2, 3]
+
+    @pytest.mark.valid
+    def test_set_non_existent_attributes(self):
+        obj = Base()
+        obj.set(new_attr1="value1", new_attr2="value2")
+        assert obj.new_attr1 == "value1"
+        assert obj.new_attr2 == "value2"
+
+    @pytest.mark.valid
+    def test_set_attributes_with_special_characters_in_keys(self):
+        obj = Base()
+        obj.set(attr_with_special_chars_1="value1", attr_with_special_chars_2="value2")
+        assert obj.attr_with_special_chars_1 == "value1"
+        assert obj.attr_with_special_chars_2 == "value2"
+
+    @pytest.mark.valid
+    def test_set_attributes_with_empty_values(self):
+        obj = Base()
+        obj.set(empty_str="", empty_list=[])
+        assert obj.empty_str == ""
+        assert obj.empty_list == []
+
+    @pytest.mark.valid
+    def test_set_attributes_with_none_values(self):
+        obj = Base()
+        obj.set(none_attr=None)
+        assert obj.none_attr is None
+
+    @pytest.mark.valid
+    def test_set_attributes_with_large_values(self):
+        obj = Base()
+        large_string = "a" * 1000
+        large_list = list(range(1000))
+        obj.set(large_str=large_string, large_list=large_list)
+        assert obj.large_str == large_string
+        assert obj.large_list == large_list
+
+    @pytest.mark.valid
+    def test_set_attributes_with_nested_data_structures(self):
+        obj = Base()
+        nested_dict = {"key1": "value1", "key2": "value2"}
+        nested_list = [{"key1": "value1"}, {"key2": "value2"}]
+        obj.set(nested_dict=nested_dict, nested_list=nested_list)
+        assert obj.nested_dict == nested_dict
+        assert obj.nested_list == nested_list
+
+    @pytest.mark.valid
+    def test_set_attributes_with_reserved_keywords(self):
+        obj = Base()
+        obj.set(for="value1", class_="value2")
+        assert obj.for == "value1"
+        assert obj.class_ == "value2"

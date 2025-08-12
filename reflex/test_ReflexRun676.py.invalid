@@ -1,0 +1,211 @@
+from __future__ import annotations
+import atexit
+from importlib.util import find_spec
+from pathlib import Path
+from typing import TYPE_CHECKING
+import click
+from reflex_cli.v2.deployments import hosting_cli
+from reflex import constants
+from reflex.config import get_config
+from reflex.constants.base import LITERAL_ENV
+from reflex.custom_components.custom_components import custom_components_cli
+from reflex.environment import environment
+from reflex.state import reset_disk_state_manager
+from reflex.utils import console, redir, telemetry
+from reflex.utils.exec import should_use_granian
+from reflex.utils import exec, prerequisites
+from reflex.utils import build, exec, prerequisites, processes
+import time
+from reflex.utils import prerequisites
+from reflex.utils import reflex.utils as export_utils
+from reflex.utils import prerequisites
+from reflex_cli.v2 import reflex_cli.v2 as hosting_cli
+from reflex_cli.v2.deployments import check_version
+from reflex_cli.v2.cli import logout
+from reflex_cli.v2.deployments import check_version
+from reflex import model
+from reflex.utils import prerequisites
+from reflex import model
+from reflex.utils import prerequisites
+from reflex.model import Model, format_revision
+from reflex.utils import prerequisites
+import reflex.config
+from alembic.util.exc import CommandError
+from reflex import model
+from reflex.utils import prerequisites
+from reflex_cli.utils import dependency
+from reflex_cli.v2 import reflex_cli.v2 as hosting_cli
+from reflex_cli.v2.deployments import check_version
+from reflex.utils import reflex.utils as export_utils
+from reflex.utils import prerequisites
+from reflex.utils import prerequisites
+from reflex_cli.constants.base import reflex_cli.constants.base as HostingLogLevel
+from reflex_cli.constants.base import reflex_cli.constants.base as HostingLogLevel
+import typer
+import concurrent.futures
+from reflex.reflex import run
+import pytest
+from unittest.mock import patch, MagicMock
+
+class Test_ReflexRun:
+
+    @pytest.mark.negative
+    @pytest.mark.valid
+    def test_run_with_both_frontend_and_backend_only(self):
+        with pytest.raises(click.exceptions.Exit):
+            run(
+                env=constants.Env.DEV,
+                frontend_only=True,
+                backend_only=True,
+                frontend_port=None,
+                backend_port=None,
+                backend_host=None,
+            )
+
+    @pytest.mark.valid
+    def test_run_sets_environment_variables(self):
+        with patch('reflex.environment.environment.REFLEX_COMPILE_CONTEXT.set') as mock_compile_context, \
+             patch('reflex.environment.environment.REFLEX_BACKEND_ONLY.set') as mock_backend_only, \
+             patch('reflex.environment.environment.REFLEX_FRONTEND_ONLY.set') as mock_frontend_only:
+            run(
+                env=constants.Env.DEV,
+                frontend_only=True,
+                backend_only=False,
+                frontend_port=None,
+                backend_port=None,
+                backend_host=None,
+            )
+            mock_compile_context.assert_called_once_with(constants.CompileContext.RUN)
+            mock_backend_only.assert_called_once_with(False)
+            mock_frontend_only.assert_called_once_with(True)
+
+    @pytest.mark.valid
+    def test_run_calls__run_with_correct_parameters(self):
+        with patch('reflex.reflex._run') as mock__run:
+            run(
+                env=constants.Env.DEV,
+                frontend_only=True,
+                backend_only=False,
+                frontend_port=None,
+                backend_port=None,
+                backend_host=None,
+            )
+            mock__run.assert_called_once_with(
+                constants.Env.DEV,
+                True,
+                False,
+                None,
+                None,
+                None,
+            )
+
+    @pytest.mark.valid
+    def test_run_handles_none_values_for_ports_and_host(self):
+        config = get_config()
+        with patch('reflex.config.get_config', return_value=config):
+            run(
+                env=constants.Env.DEV,
+                frontend_only=True,
+                backend_only=False,
+                frontend_port=None,
+                backend_port=None,
+                backend_host=None,
+            )
+            assert environment.REFLEX_FRONTEND_ONLY.get() == True
+            assert environment.REFLEX_BACKEND_ONLY.get() == False
+
+    @pytest.mark.negative
+    @pytest.mark.valid
+    def test_run_raises_error_if_config_file_missing(self):
+        with patch('reflex.constants.Config.FILE.exists', return_value=False):
+            with pytest.raises(click.exceptions.Exit):
+                run(
+                    env=constants.Env.DEV,
+                    frontend_only=True,
+                    backend_only=False,
+                    frontend_port=None,
+                    backend_port=None,
+                    backend_host=None,
+                )
+
+    @pytest.mark.valid
+    def test_run_handles_different_environments(self):
+        with patch('reflex.reflex._run') as mock__run:
+            run(
+                env=constants.Env.PROD,
+                frontend_only=True,
+                backend_only=False,
+                frontend_port=None,
+                backend_port=None,
+                backend_host=None,
+            )
+            mock__run.assert_called_once_with(
+                constants.Env.PROD,
+                True,
+                False,
+                None,
+                None,
+                None,
+            )
+
+    @pytest.mark.valid
+    def test_run_handles_port_conflicts(self):
+        with patch('reflex.utils.processes.handle_port', side_effect=[1234, 1235]):
+            run(
+                env=constants.Env.DEV,
+                frontend_only=True,
+                backend_only=False,
+                frontend_port=1234,
+                backend_port=None,
+                backend_host=None,
+            )
+            assert environment.REFLEX_FRONTEND_ONLY.get() == True
+            assert environment.REFLEX_BACKEND_ONLY.get() == False
+
+    @pytest.mark.valid
+    def test_run_handles_different_log_levels(self):
+        config = get_config()
+        config.loglevel = constants.LogLevel.DEBUG
+        with patch('reflex.config.get_config', return_value=config):
+            run(
+                env=constants.Env.DEV,
+                frontend_only=True,
+                backend_only=False,
+                frontend_port=None,
+                backend_port=None,
+                backend_host=None,
+            )
+            assert environment.REFLEX_FRONTEND_ONLY.get() == True
+            assert environment.REFLEX_BACKEND_ONLY.get() == False
+
+    @pytest.mark.valid
+    def test_run_handles_different_state_management_modes(self):
+        config = get_config()
+        config.state_manager_mode = constants.StateManagerMode.REDIS
+        with patch('reflex.config.get_config', return_value=config):
+            run(
+                env=constants.Env.DEV,
+                frontend_only=True,
+                backend_only=False,
+                frontend_port=None,
+                backend_port=None,
+                backend_host=None,
+            )
+            assert environment.REFLEX_FRONTEND_ONLY.get() == True
+            assert environment.REFLEX_BACKEND_ONLY.get() == False
+
+    @pytest.mark.valid
+    def test_run_handles_different_telemetry_settings(self):
+        config = get_config()
+        config.telemetry_enabled = True
+        with patch('reflex.config.get_config', return_value=config):
+            run(
+                env=constants.Env.DEV,
+                frontend_only=True,
+                backend_only=False,
+                frontend_port=None,
+                backend_port=None,
+                backend_host=None,
+            )
+            assert environment.REFLEX_FRONTEND_ONLY.get() == True
+            assert environment.REFLEX_BACKEND_ONLY.get() == False

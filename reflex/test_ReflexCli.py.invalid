@@ -1,0 +1,123 @@
+from __future__ import annotations
+import atexit
+from importlib.util import find_spec
+from pathlib import Path
+from typing import TYPE_CHECKING
+import click
+from reflex_cli.v2.deployments import hosting_cli
+from reflex import constants
+from reflex.config import get_config
+from reflex.constants.base import LITERAL_ENV
+from reflex.custom_components.custom_components import custom_components_cli
+from reflex.environment import environment
+from reflex.state import reset_disk_state_manager
+from reflex.utils import console, redir, telemetry
+from reflex.utils.exec import should_use_granian
+from reflex.utils import exec, prerequisites
+from reflex.utils import build, exec, prerequisites, processes
+import time
+from reflex.utils import prerequisites
+from reflex.utils import reflex.utils as export_utils
+from reflex.utils import prerequisites
+from reflex_cli.v2 import reflex_cli.v2 as hosting_cli
+from reflex_cli.v2.deployments import check_version
+from reflex_cli.v2.cli import logout
+from reflex_cli.v2.deployments import check_version
+from reflex import model
+from reflex.utils import prerequisites
+from reflex import model
+from reflex.utils import prerequisites
+from reflex.model import Model, format_revision
+from reflex.utils import prerequisites
+import reflex.config
+from alembic.util.exc import CommandError
+from reflex import model
+from reflex.utils import prerequisites
+from reflex_cli.utils import dependency
+from reflex_cli.v2 import reflex_cli.v2 as hosting_cli
+from reflex_cli.v2.deployments import check_version
+from reflex.utils import reflex.utils as export_utils
+from reflex.utils import prerequisites
+from reflex.utils import prerequisites
+from reflex_cli.constants.base import reflex_cli.constants.base as HostingLogLevel
+from reflex_cli.constants.base import reflex_cli.constants.base as HostingLogLevel
+import typer
+import concurrent.futures
+import pytest
+from unittest.mock import patch, MagicMock
+from reflex.reflex import cli
+
+class Test_ReflexCli:
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_cli_basic_functionality(self):
+        try:
+            cli()
+        except Exception as e:
+            pytest.fail(f"cli() raised an exception: {e}")
+
+    @pytest.mark.valid
+    def test_cli_environment_initialization(self):
+        with patch('reflex.environment.environment') as mock_env:
+            mock_env.return_value = MagicMock()
+            cli()
+            mock_env.assert_called_once()
+
+    @pytest.mark.valid
+    def test_cli_dependency_check(self):
+        with patch('reflex.utils.prerequisites.check_dependencies') as mock_check:
+            mock_check.side_effect = CommandError("Missing dependency")
+            with pytest.raises(CommandError, match="Missing dependency"):
+                cli()
+
+    @pytest.mark.valid
+    def test_cli_configuration_loading(self):
+        config_path = Path("path/to/config")  # TODO: Change to actual config path
+        with patch('reflex.config.get_config') as mock_config:
+            mock_config.return_value = MagicMock()
+            cli()
+            mock_config.assert_called_once_with(config_path)
+
+    @pytest.mark.valid
+    def test_cli_telemetry_reporting(self):
+        with patch('reflex.utils.telemetry.report') as mock_report:
+            cli()
+            mock_report.assert_called_once()
+
+    @pytest.mark.invalid
+    def test_cli_error_handling(self):
+        with patch('reflex.utils.exec.execute_command') as mock_exec:
+            mock_exec.side_effect = Exception("Command failed")
+            with pytest.raises(Exception, match="Command failed"):
+                cli()
+
+    @pytest.mark.valid
+    def test_cli_concurrent_execution(self):
+        def run_cli():
+            cli()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [executor.submit(run_cli) for _ in range(3)]
+            for future in concurrent.futures.as_completed(futures):
+                future.result()
+
+    @pytest.mark.valid
+    def test_cli_log_level_configuration(self):
+        with patch('reflex.utils.console.set_loglevel') as mock_set_loglevel:
+            cli()
+            mock_set_loglevel.assert_called_once_with(constants.LogLevel.INFO)  # TODO: Change to actual log level
+
+    @pytest.mark.valid
+    def test_cli_model_initialization(self):
+        with patch('reflex.model.Model') as mock_model:
+            mock_model.return_value = MagicMock()
+            cli()
+            mock_model.assert_called_once()
+
+    @pytest.mark.valid
+    def test_cli_version_check(self):
+        with patch('reflex_cli.v2.deployments.check_version') as mock_check_version:
+            mock_check_version.return_value = False
+            with pytest.raises(Exception, match="Version compatibility issue"):
+                cli()

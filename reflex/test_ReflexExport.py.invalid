@@ -1,0 +1,212 @@
+from __future__ import annotations
+import atexit
+from importlib.util import find_spec
+from pathlib import Path
+from typing import TYPE_CHECKING
+import click
+from reflex_cli.v2.deployments import hosting_cli
+from reflex import constants
+from reflex.config import get_config
+from reflex.constants.base import LITERAL_ENV
+from reflex.custom_components.custom_components import custom_components_cli
+from reflex.environment import environment
+from reflex.state import reset_disk_state_manager
+from reflex.utils import console, redir, telemetry
+from reflex.utils.exec import should_use_granian
+from reflex.utils import exec, prerequisites
+from reflex.utils import build, exec, prerequisites, processes
+import time
+from reflex.utils import prerequisites
+from reflex.utils import reflex.utils as export_utils
+from reflex.utils import prerequisites
+from reflex_cli.v2 import reflex_cli.v2 as hosting_cli
+from reflex_cli.v2.deployments import check_version
+from reflex_cli.v2.cli import logout
+from reflex_cli.v2.deployments import check_version
+from reflex import model
+from reflex.utils import prerequisites
+from reflex import model
+from reflex.utils import prerequisites
+from reflex.model import Model, format_revision
+from reflex.utils import prerequisites
+import reflex.config
+from alembic.util.exc import CommandError
+from reflex import model
+from reflex.utils import prerequisites
+from reflex_cli.utils import dependency
+from reflex_cli.v2 import reflex_cli.v2 as hosting_cli
+from reflex_cli.v2.deployments import check_version
+from reflex.utils import reflex.utils as export_utils
+from reflex.utils import prerequisites
+from reflex.utils import prerequisites
+from reflex_cli.constants.base import reflex_cli.constants.base as HostingLogLevel
+from reflex_cli.constants.base import reflex_cli.constants.base as HostingLogLevel
+import typer
+import concurrent.futures
+import pytest
+from unittest.mock import patch, MagicMock
+from reflex.reflex import export
+
+class Test_ReflexExport:
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_export_with_zip_and_frontend_only(self):
+        with patch('reflex.utils.export.export') as mock_export:
+            export(
+                zip=True,
+                frontend_only=True,
+                backend_only=False,
+                zip_dest_dir='./export',
+                upload_db_file=False,
+                env=constants.Env.DEV,
+            )
+            mock_export.assert_called_once_with(
+                zipping=True,
+                frontend=True,
+                backend=False,
+                zip_dest_dir='./export',
+                upload_db_file=False,
+                env=constants.Env.DEV,
+                loglevel=constants.LogLevel.DEFAULT,
+            )
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_export_with_backend_only(self):
+        with patch('reflex.utils.export.export') as mock_export:
+            export(
+                zip=False,
+                frontend_only=False,
+                backend_only=True,
+                zip_dest_dir='./export',
+                upload_db_file=False,
+                env=constants.Env.PROD,
+            )
+            mock_export.assert_called_once_with(
+                zipping=False,
+                frontend=False,
+                backend=True,
+                zip_dest_dir='./export',
+                upload_db_file=False,
+                env=constants.Env.PROD,
+                loglevel=constants.LogLevel.DEFAULT,
+            )
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_export_with_zip_and_both_frontend_and_backend(self):
+        with patch('reflex.utils.export.export') as mock_export:
+            export(
+                zip=True,
+                frontend_only=False,
+                backend_only=False,
+                zip_dest_dir='./export',
+                upload_db_file=False,
+                env=constants.Env.DEV,
+            )
+            mock_export.assert_called_once_with(
+                zipping=True,
+                frontend=True,
+                backend=True,
+                zip_dest_dir='./export',
+                upload_db_file=False,
+                env=constants.Env.DEV,
+                loglevel=constants.LogLevel.DEFAULT,
+            )
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_export_with_upload_db_file(self):
+        with patch('reflex.utils.export.export') as mock_export:
+            export(
+                zip=False,
+                frontend_only=False,
+                backend_only=False,
+                zip_dest_dir='./export',
+                upload_db_file=True,
+                env=constants.Env.DEV,
+            )
+            mock_export.assert_called_once_with(
+                zipping=False,
+                frontend=True,
+                backend=True,
+                zip_dest_dir='./export',
+                upload_db_file=True,
+                env=constants.Env.DEV,
+                loglevel=constants.LogLevel.DEFAULT,
+            )
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_export_in_production_environment(self):
+        with patch('reflex.utils.export.export') as mock_export:
+            export(
+                zip=False,
+                frontend_only=False,
+                backend_only=False,
+                zip_dest_dir='./export',
+                upload_db_file=False,
+                env=constants.Env.PROD,
+            )
+            mock_export.assert_called_once_with(
+                zipping=False,
+                frontend=True,
+                backend=True,
+                zip_dest_dir='./export',
+                upload_db_file=False,
+                env=constants.Env.PROD,
+                loglevel=constants.LogLevel.DEFAULT,
+            )
+
+    @pytest.mark.smoke
+    @pytest.mark.invalid
+    def test_export_with_missing_config_file(self):
+        with patch('reflex.config.get_config') as mock_get_config:
+            mock_get_config.side_effect = FileNotFoundError
+            with pytest.raises(FileNotFoundError):
+                export(
+                    zip=False,
+                    frontend_only=False,
+                    backend_only=False,
+                    zip_dest_dir='./export',
+                    upload_db_file=False,
+                    env=constants.Env.DEV,
+                )
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_export_with_reinitialization_needed(self):
+        with patch('reflex.utils.prerequisites.needs_reinit') as mock_needs_reinit:
+            mock_needs_reinit.return_value = True
+            with patch('reflex.utils.export.export') as mock_export:
+                export(
+                    zip=False,
+                    frontend_only=False,
+                    backend_only=False,
+                    zip_dest_dir='./export',
+                    upload_db_file=False,
+                    env=constants.Env.DEV,
+                )
+                mock_export.assert_called_once_with(
+                    zipping=False,
+                    frontend=True,
+                    backend=True,
+                    zip_dest_dir='./export',
+                    upload_db_file=False,
+                    env=constants.Env.DEV,
+                    loglevel=constants.LogLevel.DEFAULT,
+                )
+
+    @pytest.mark.smoke
+    @pytest.mark.invalid
+    def test_export_with_invalid_environment(self):
+        with pytest.raises(ValueError):
+            export(
+                zip=False,
+                frontend_only=False,
+                backend_only=False,
+                zip_dest_dir='./export',
+                upload_db_file=False,
+                env='invalid_env',
+            )
