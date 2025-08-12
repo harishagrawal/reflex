@@ -1,0 +1,164 @@
+from __future__ import annotations
+import atexit
+from importlib.util import find_spec
+from pathlib import Path
+from typing import TYPE_CHECKING
+import click
+from reflex_cli.v2.deployments import hosting_cli
+from reflex import constants
+from reflex.config import get_config
+from reflex.constants.base import LITERAL_ENV
+from reflex.custom_components.custom_components import custom_components_cli
+from reflex.environment import environment
+from reflex.state import reset_disk_state_manager
+from reflex.utils import console, redir, telemetry
+from reflex.utils.exec import should_use_granian
+from reflex.utils import exec, prerequisites
+from reflex.utils import build, exec, prerequisites, processes
+import time
+from reflex.utils import prerequisites
+from reflex.utils import reflex.utils as export_utils
+from reflex.utils import prerequisites
+from reflex_cli.v2 import reflex_cli.v2 as hosting_cli
+from reflex_cli.v2.deployments import check_version
+from reflex_cli.v2.cli import logout
+from reflex_cli.v2.deployments import check_version
+from reflex import model
+from reflex.utils import prerequisites
+from reflex import model
+from reflex.utils import prerequisites
+from reflex.model import Model, format_revision
+from reflex.utils import prerequisites
+import reflex.config
+from alembic.util.exc import CommandError
+from reflex import model
+from reflex.utils import prerequisites
+from reflex_cli.utils import dependency
+from reflex_cli.v2 import reflex_cli.v2 as hosting_cli
+from reflex_cli.v2.deployments import check_version
+from reflex.utils import reflex.utils as export_utils
+from reflex.utils import prerequisites
+from reflex.utils import prerequisites
+from reflex_cli.constants.base import reflex_cli.constants.base as HostingLogLevel
+from reflex_cli.constants.base import reflex_cli.constants.base as HostingLogLevel
+import typer
+import concurrent.futures
+import pytest
+from unittest.mock import patch, MagicMock
+from reflex.reflex import compile
+
+@pytest.fixture
+def mock_prerequisites():
+    with patch('reflex.utils.prerequisites.needs_reinit') as mock_needs_reinit, \
+         patch('reflex.utils.prerequisites.compile_app') as mock_compile_app, \
+         patch('reflex.utils.console.success') as mock_success, \
+         patch('reflex.utils._init') as mock_init, \
+         patch('reflex.config.get_config') as mock_get_config:
+        yield mock_needs_reinit, mock_compile_app, mock_success, mock_init, mock_get_config
+
+class Test_ReflexCompile:
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_initialization_when_reinitialization_needed(self, mock_prerequisites):
+        mock_needs_reinit, mock_compile_app, mock_success, mock_init, mock_get_config = mock_prerequisites
+        mock_needs_reinit.return_value = True
+        mock_get_config.return_value = MagicMock(app_name='test_app')
+
+        compile(dry=True)
+
+        mock_init.assert_called_once_with(name='test_app')
+        mock_compile_app.assert_called_once_with(dry_run=True)
+        mock_success.assert_called_once()
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_compilation_without_errors(self, mock_prerequisites):
+        mock_needs_reinit, mock_compile_app, mock_success, mock_init, mock_get_config = mock_prerequisites
+        mock_needs_reinit.return_value = False
+
+        compile(dry=True)
+
+        mock_compile_app.assert_called_once_with(dry_run=True)
+        mock_success.assert_called_once()
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_success_message_after_compilation(self, mock_prerequisites):
+        mock_needs_reinit, mock_compile_app, mock_success, mock_init, mock_get_config = mock_prerequisites
+        mock_needs_reinit.return_value = False
+
+        compile(dry=True)
+
+        mock_success.assert_called_once()
+        assert 'App compiled successfully' in mock_success.call_args[0][0]
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_compilation_time_measurement(self, mock_prerequisites):
+        mock_needs_reinit, mock_compile_app, mock_success, mock_init, mock_get_config = mock_prerequisites
+        mock_needs_reinit.return_value = False
+
+        compile(dry=True)
+
+        mock_success.assert_called_once()
+        assert 'seconds' in mock_success.call_args[0][0]
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_function_behavior_when_dry_is_false(self, mock_prerequisites):
+        mock_needs_reinit, mock_compile_app, mock_success, mock_init, mock_get_config = mock_prerequisites
+        mock_needs_reinit.return_value = False
+
+        compile(dry=False)
+
+        mock_compile_app.assert_called_once_with(dry_run=False)
+        mock_success.assert_called_once()
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_function_behavior_when_reinitialization_needed_and_dry_is_false(self, mock_prerequisites):
+        mock_needs_reinit, mock_compile_app, mock_success, mock_init, mock_get_config = mock_prerequisites
+        mock_needs_reinit.return_value = True
+        mock_get_config.return_value = MagicMock(app_name='test_app')
+
+        compile(dry=False)
+
+        mock_init.assert_called_once_with(name='test_app')
+        mock_compile_app.assert_called_once_with(dry_run=False)
+        mock_success.assert_called_once()
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_function_behavior_when_reinitialization_not_needed_and_dry_is_false(self, mock_prerequisites):
+        mock_needs_reinit, mock_compile_app, mock_success, mock_init, mock_get_config = mock_prerequisites
+        mock_needs_reinit.return_value = False
+
+        compile(dry=False)
+
+        mock_compile_app.assert_called_once_with(dry_run=False)
+        mock_success.assert_called_once()
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_function_behavior_when_reinitialization_needed_and_dry_is_true(self, mock_prerequisites):
+        mock_needs_reinit, mock_compile_app, mock_success, mock_init, mock_get_config = mock_prerequisites
+        mock_needs_reinit.return_value = True
+        mock_get_config.return_value = MagicMock(app_name='test_app')
+
+        compile(dry=True)
+
+        mock_init.assert_called_once_with(name='test_app')
+        mock_compile_app.assert_called_once_with(dry_run=True)
+        mock_success.assert_called_once()
+
+    @pytest.mark.smoke
+    @pytest.mark.valid
+    def test_function_behavior_when_reinitialization_not_needed_and_dry_is_true(self, mock_prerequisites):
+        mock_needs_reinit, mock_compile_app, mock_success, mock_init, mock_get_config = mock_prerequisites
+        mock_needs_reinit.return_value = False
+
+        compile(dry=True)
+
+        mock_compile_app.assert_called_once_with(dry_run=True)
+        mock_success.assert_called_once()

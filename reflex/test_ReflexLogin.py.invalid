@@ -1,0 +1,162 @@
+from __future__ import annotations
+import atexit
+from importlib.util import find_spec
+from pathlib import Path
+from typing import TYPE_CHECKING
+import click
+from reflex_cli.v2.deployments import hosting_cli
+from reflex import constants
+from reflex.config import get_config
+from reflex.constants.base import LITERAL_ENV
+from reflex.custom_components.custom_components import custom_components_cli
+from reflex.environment import environment
+from reflex.state import reset_disk_state_manager
+from reflex.utils import console, redir, telemetry
+from reflex.utils.exec import should_use_granian
+from reflex.utils import exec, prerequisites
+from reflex.utils import build, exec, prerequisites, processes
+import time
+from reflex.utils import prerequisites
+from reflex.utils import reflex.utils as export_utils
+from reflex.utils import prerequisites
+from reflex_cli.v2 import reflex_cli.v2 as hosting_cli
+from reflex_cli.v2.deployments import check_version
+from reflex_cli.v2.cli import logout
+from reflex_cli.v2.deployments import check_version
+from reflex import model
+from reflex.utils import prerequisites
+from reflex import model
+from reflex.utils import prerequisites
+from reflex.model import Model, format_revision
+from reflex.utils import prerequisites
+import reflex.config
+from alembic.util.exc import CommandError
+from reflex import model
+from reflex.utils import prerequisites
+from reflex_cli.utils import dependency
+from reflex_cli.v2 import reflex_cli.v2 as hosting_cli
+from reflex_cli.v2.deployments import check_version
+from reflex.utils import reflex.utils as export_utils
+from reflex.utils import prerequisites
+from reflex.utils import prerequisites
+from reflex_cli.constants.base import reflex_cli.constants.base as HostingLogLevel
+from reflex_cli.constants.base import reflex_cli.constants.base as HostingLogLevel
+import typer
+import concurrent.futures
+from unittest.mock import patch, MagicMock
+import pytest
+from reflex.reflex import login
+
+@pytest.fixture(autouse=True)
+def mock_dependencies():
+    with patch('reflex_cli.v2.deployments.check_version') as mock_check_version, \
+         patch('reflex_cli.v2.cli.login') as mock_login, \
+         patch('reflex.utils.telemetry.send') as mock_telemetry_send, \
+         patch('reflex.utils.exec._skip_compile') as mock_skip_compile:
+        yield mock_check_version, mock_login, mock_telemetry_send, mock_skip_compile
+
+class Test_ReflexLogin:
+
+    @pytest.mark.valid
+    @pytest.mark.smoke
+    def test_successful_login(self, mock_dependencies):
+        mock_check_version, mock_login, mock_telemetry_send, mock_skip_compile = mock_dependencies
+        mock_login.return_value = {"user_id": "12345"}
+        login()
+        mock_telemetry_send.assert_called_once_with("login", user_uuid="12345")
+        mock_skip_compile.assert_called_once()
+
+    @pytest.mark.invalid
+    @pytest.mark.smoke
+    def test_login_failure(self, mock_dependencies):
+        mock_check_version, mock_login, mock_telemetry_send, mock_skip_compile = mock_dependencies
+        mock_login.return_value = None
+        login()
+        mock_telemetry_send.assert_not_called()
+        mock_skip_compile.assert_not_called()
+
+    @pytest.mark.invalid
+    @pytest.mark.smoke
+    def test_version_check_failure(self, mock_dependencies):
+        mock_check_version, mock_login, mock_telemetry_send, mock_skip_compile = mock_dependencies
+        mock_check_version.side_effect = Exception("Version check failed")
+        with pytest.raises(Exception, match="Version check failed"):
+            login()
+        mock_telemetry_send.assert_not_called()
+        mock_skip_compile.assert_not_called()
+
+    @pytest.mark.valid
+    @pytest.mark.smoke
+    def test_telemetry_disabled(self, mock_dependencies):
+        mock_check_version, mock_login, mock_telemetry_send, mock_skip_compile = mock_dependencies
+        mock_login.return_value = {"user_id": "12345"}
+        with patch('reflex.config.get_config') as mock_get_config:
+            mock_get_config.return_value.telemetry_enabled = False
+            login()
+        mock_telemetry_send.assert_not_called()
+        mock_skip_compile.assert_called_once()
+
+    @pytest.mark.valid
+    @pytest.mark.smoke
+    def test_compile_step_skipped(self, mock_dependencies):
+        mock_check_version, mock_login, mock_telemetry_send, mock_skip_compile = mock_dependencies
+        mock_login.return_value = {"user_id": "12345"}
+        with patch.dict('os.environ', {'REFLEX_SKIP_COMPILE': '1'}):
+            login()
+        mock_telemetry_send.assert_called_once_with("login", user_uuid="12345")
+        mock_skip_compile.assert_called_once()
+
+    @pytest.mark.valid
+    @pytest.mark.smoke
+    def test_concurrent_logins(self, mock_dependencies):
+        mock_check_version, mock_login, mock_telemetry_send, mock_skip_compile = mock_dependencies
+        mock_login.return_value = {"user_id": "12345"}
+        def concurrent_login():
+            login()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(concurrent_login) for _ in range(5)]
+            concurrent.futures.wait(futures)
+        mock_telemetry_send.assert_called()
+        mock_skip_compile.assert_called()
+
+    @pytest.mark.invalid
+    @pytest.mark.smoke
+    def test_missing_dependencies(self, mock_dependencies):
+        mock_check_version, mock_login, mock_telemetry_send, mock_skip_compile = mock_dependencies
+        mock_check_version.side_effect = ImportError("Missing dependency")
+        with pytest.raises(ImportError, match="Missing dependency"):
+            login()
+        mock_telemetry_send.assert_not_called()
+        mock_skip_compile.assert_not_called()
+
+    @pytest.mark.invalid
+    @pytest.mark.smoke
+    def test_invalid_user_information(self, mock_dependencies):
+        mock_check_version, mock_login, mock_telemetry_send, mock_skip_compile = mock_dependencies
+        mock_login.return_value = {"invalid_key": "12345"}
+        login()
+        mock_telemetry_send.assert_not_called()
+        mock_skip_compile.assert_not_called()
+
+    @pytest.mark.invalid
+    @pytest.mark.smoke
+    def test_network_issues(self, mock_dependencies):
+        mock_check_version, mock_login, mock_telemetry_send, mock_skip_compile = mock_dependencies
+        mock_login.side_effect = ConnectionError("Network issues")
+        with pytest.raises(ConnectionError, match="Network issues"):
+            login()
+        mock_telemetry_send.assert_not_called()
+        mock_skip_compile.assert_not_called()
+
+    @pytest.mark.valid
+    @pytest.mark.smoke
+    def test_performance_under_load(self, mock_dependencies):
+        mock_check_version, mock_login, mock_telemetry_send, mock_skip_compile = mock_dependencies
+        mock_login.return_value = {"user_id": "12345"}
+        start_time = time.time()
+        for _ in range(100):
+            login()
+        end_time = time.time()
+        assert end_time - start_time < 5  // TODO: Change the value to a more appropriate value
+        mock_telemetry_send.assert_called()
+        mock_skip_compile.assert_called()
